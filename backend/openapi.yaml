@@ -1,0 +1,631 @@
+openapi: 3.0.3
+info:
+  title: KumpulTugas REST API
+  version: 1.0.0
+  description: |
+    REST API untuk pengumpulan tugas mahasiswa dan pengelolaan data admin.
+    Endpoint admin menggunakan bearer token Laravel Sanctum.
+  contact:
+    name: KumpulTugas
+servers:
+  - url: http://127.0.0.1:8001/api/v1
+    description: Local development
+tags:
+  - name: Authentication
+  - name: Classes
+  - name: Courses
+  - name: Submissions
+  - name: Admins
+
+paths:
+  /auth/login:
+    post:
+      tags: [Authentication]
+      summary: Login admin
+      operationId: loginAdmin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: admin@kampus.ac.id
+                password:
+                  type: string
+                  format: password
+                  example: admin123
+      responses:
+        '200':
+          description: Login berhasil
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string, example: Login berhasil. }
+                  data:
+                    type: object
+                    properties:
+                      token: { type: string, example: 1|sanctum-token }
+                      token_type: { type: string, example: Bearer }
+                      user: { $ref: '#/components/schemas/Admin' }
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /auth/me:
+    get:
+      tags: [Authentication]
+      summary: Mendapatkan admin yang sedang login
+      operationId: getAuthenticatedAdmin
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Data admin aktif
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Admin' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+
+  /auth/logout:
+    post:
+      tags: [Authentication]
+      summary: Logout dan menghapus token aktif
+      operationId: logoutAdmin
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Logout berhasil
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MessageResponse' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+
+  /classes:
+    get:
+      tags: [Classes]
+      summary: Daftar seluruh kelas
+      operationId: listClasses
+      responses:
+        '200':
+          description: Daftar kelas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Classroom' }
+    post:
+      tags: [Classes]
+      summary: Menambahkan kelas
+      operationId: createClass
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReferenceInput' }
+      responses:
+        '201':
+          description: Kelas berhasil dibuat
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/MessageResponse'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Classroom' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /classes/{classId}:
+    parameters:
+      - $ref: '#/components/parameters/ClassId'
+    get:
+      tags: [Classes]
+      summary: Detail kelas
+      operationId: getClass
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Detail kelas
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Classroom' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Classes]
+      summary: Memperbarui kelas
+      operationId: updateClass
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReferenceInput' }
+      responses:
+        '200':
+          description: Kelas berhasil diperbarui
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MessageResponse' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    delete:
+      tags: [Classes]
+      summary: Menghapus kelas
+      operationId: deleteClass
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Kelas berhasil dihapus
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MessageResponse' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /courses:
+    get:
+      tags: [Courses]
+      summary: Daftar seluruh mata kuliah
+      operationId: listCourses
+      responses:
+        '200':
+          description: Daftar mata kuliah
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Course' }
+    post:
+      tags: [Courses]
+      summary: Menambahkan mata kuliah
+      operationId: createCourse
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReferenceInput' }
+      responses:
+        '201':
+          description: Mata kuliah berhasil dibuat
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MessageResponse' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /courses/{courseId}:
+    parameters:
+      - $ref: '#/components/parameters/CourseId'
+    get:
+      tags: [Courses]
+      summary: Detail mata kuliah
+      operationId: getCourse
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Detail mata kuliah
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Course' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Courses]
+      summary: Memperbarui mata kuliah
+      operationId: updateCourse
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReferenceInput' }
+      responses:
+        '200':
+          description: Mata kuliah berhasil diperbarui
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MessageResponse' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    delete:
+      tags: [Courses]
+      summary: Menghapus mata kuliah
+      operationId: deleteCourse
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Mata kuliah berhasil dihapus
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MessageResponse' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /submissions:
+    post:
+      tags: [Submissions]
+      summary: Mengirim tugas mahasiswa
+      operationId: createSubmission
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [nim, student_name, class_id, course_id, meeting, file]
+              properties:
+                nim:
+                  type: string
+                  maxLength: 50
+                  pattern: '^[A-Za-z0-9]+$'
+                  example: TI2024001
+                student_name:
+                  type: string
+                  maxLength: 150
+                  example: Alya Putri
+                class_id:
+                  type: integer
+                  example: 1
+                course_id:
+                  type: integer
+                  example: 1
+                meeting:
+                  type: integer
+                  minimum: 1
+                  maximum: 14
+                  example: 4
+                file:
+                  type: string
+                  format: binary
+                  description: PDF maksimal 10 MB
+      responses:
+        '201':
+          description: Tugas berhasil disimpan
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/MessageResponse'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Submission' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    get:
+      tags: [Submissions]
+      summary: Daftar dan pencarian tugas
+      operationId: listSubmissions
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: search
+          in: query
+          schema: { type: string }
+          description: Pencarian NIM atau nama mahasiswa
+        - name: class_id
+          in: query
+          schema: { type: integer }
+        - name: course_id
+          in: query
+          schema: { type: integer }
+        - name: meeting
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 14 }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: per_page
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 15 }
+      responses:
+        '200':
+          description: Daftar tugas terfilter
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Submission' }
+                  meta: { $ref: '#/components/schemas/PaginationMeta' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /submissions/{submissionId}:
+    get:
+      tags: [Submissions]
+      summary: Detail tugas
+      operationId: getSubmission
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/SubmissionId'
+      responses:
+        '200':
+          description: Detail tugas
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Submission' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /submissions/{submissionId}/file:
+    get:
+      tags: [Submissions]
+      summary: Membuka file PDF tugas
+      operationId: viewSubmissionFile
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/SubmissionId'
+      responses:
+        '200':
+          description: Konten PDF dengan Content-Disposition inline
+          headers:
+            Content-Disposition:
+              schema: { type: string, example: 'inline; filename="tugas.pdf"' }
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /admins:
+    get:
+      tags: [Admins]
+      summary: Daftar akun admin
+      operationId: listAdmins
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Daftar admin
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Admin' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Admins]
+      summary: Membuat akun admin anggota
+      operationId: createAdmin
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email, example: anggota@kampus.ac.id }
+                password: { type: string, format: password, minLength: 8, example: password123 }
+      responses:
+        '201':
+          description: Akun anggota berhasil dibuat
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MessageResponse' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /admins/{adminId}:
+    delete:
+      tags: [Admins]
+      summary: Menghapus akun admin anggota
+      operationId: deleteAdmin
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: adminId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Akun berhasil dihapus
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MessageResponse' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Sanctum token
+
+  parameters:
+    ClassId:
+      name: classId
+      in: path
+      required: true
+      schema: { type: integer }
+    CourseId:
+      name: courseId
+      in: path
+      required: true
+      schema: { type: integer }
+    SubmissionId:
+      name: submissionId
+      in: path
+      required: true
+      schema: { type: integer }
+
+  schemas:
+    SuccessResponse:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+
+    MessageResponse:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        message: { type: string, example: Operasi berhasil. }
+
+    ErrorResponse:
+      type: object
+      properties:
+        success: { type: boolean, example: false }
+        message: { type: string, example: Permintaan tidak dapat diproses. }
+
+    ValidationError:
+      type: object
+      properties:
+        message: { type: string, example: The given data was invalid. }
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items: { type: string }
+
+    ReferenceInput:
+      type: object
+      required: [code, name]
+      properties:
+        code: { type: string, maxLength: 30, example: TI-1A }
+        name: { type: string, maxLength: 150, example: Teknik Informatika — 1A }
+
+    Classroom:
+      type: object
+      properties:
+        id: { type: integer, example: 1 }
+        code: { type: string, example: TI-1A }
+        name: { type: string, example: Teknik Informatika — 1A }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    Course:
+      type: object
+      properties:
+        id: { type: integer, example: 1 }
+        code: { type: string, example: IF101 }
+        name: { type: string, example: Pemrograman Web }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    Admin:
+      type: object
+      properties:
+        id: { type: integer, example: 1 }
+        email: { type: string, format: email, example: admin@kampus.ac.id }
+        role:
+          type: string
+          enum: [super_admin, member]
+        created_at: { type: string, format: date-time, nullable: true }
+
+    Submission:
+      type: object
+      properties:
+        id: { type: integer, example: 1 }
+        nim: { type: string, example: TI2024001 }
+        student_name: { type: string, example: Alya Putri }
+        class: { $ref: '#/components/schemas/ClassroomSummary' }
+        course: { $ref: '#/components/schemas/CourseSummary' }
+        meeting: { type: integer, minimum: 1, maximum: 14, example: 4 }
+        file:
+          type: object
+          properties:
+            name: { type: string, example: tugas-pertemuan-4.pdf }
+            mime_type: { type: string, example: application/pdf }
+            size: { type: integer, example: 245760 }
+        submitted_at: { type: string, format: date-time, nullable: true }
+
+    ClassroomSummary:
+      type: object
+      properties:
+        id: { type: integer, example: 1 }
+        code: { type: string, example: TI-1A }
+        name: { type: string, example: Teknik Informatika — 1A }
+
+    CourseSummary:
+      type: object
+      properties:
+        id: { type: integer, example: 1 }
+        code: { type: string, example: IF101 }
+        name: { type: string, example: Pemrograman Web }
+
+    PaginationMeta:
+      type: object
+      properties:
+        current_page: { type: integer, example: 1 }
+        last_page: { type: integer, example: 1 }
+        per_page: { type: integer, example: 15 }
+        total: { type: integer, example: 6 }
+
+  responses:
+    Unauthenticated:
+      description: Token tidak tersedia atau tidak valid
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    Forbidden:
+      description: Role tidak memiliki izin
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    NotFound:
+      description: Data tidak ditemukan
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    Conflict:
+      description: Data masih digunakan atau tidak dapat dihapus
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    ValidationError:
+      description: Data tidak valid
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ValidationError' }

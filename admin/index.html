@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Dashboard admin KumpulTugas" />
+    <title>Dashboard Pengumpulan Tugas</title>
+    <link rel="icon" type="image/jpeg" href="logo.png" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: { sans: ['Plus Jakarta Sans', 'Inter', 'sans-serif'] },
+            colors: { ink: '#172554', navy: '#1e3a8a', coral: '#f97360', softblue: '#eff6ff' },
+            boxShadow: { card: '0 20px 60px rgba(30, 58, 138, 0.10)', soft: '0 10px 25px rgba(30, 58, 138, 0.10)' }
+          }
+        }
+      };
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+
+  <body class="min-h-screen bg-[#f7faff] font-sans text-slate-700 antialiased">
+    <!-- Login -->
+    <main id="loginView" class="relative flex min-h-screen items-center justify-center overflow-hidden px-5 py-10">
+      <div class="login-orb login-orb-one" aria-hidden="true"></div>
+      <div class="login-orb login-orb-two" aria-hidden="true"></div>
+      <section class="relative z-10 w-full max-w-md rounded-[2rem] border border-white/80 bg-white p-7 shadow-card sm:p-10" aria-labelledby="loginTitle">
+        <div class="mb-8 text-center">
+          <img src="logo.png" alt="Logo Forum Asisten" class="mx-auto mb-5 h-14 w-14 rounded-lg object-cover" />
+          <p class="mb-2 text-sm font-extrabold tracking-tight">Forum Asisten</span></p>
+          <h1 id="loginTitle" class="text-2xl font-extrabold tracking-tight text-ink">Masuk ke panel admin</h1>
+          <p class="mt-2 text-sm leading-6 text-slate-500">Kelola pengumpulan tugas mahasiswa dalam satu dashboard.</p>
+        </div>
+        <form id="loginForm" class="space-y-5" novalidate>
+          <div>
+            <label for="loginEmail" class="mb-2 block text-sm font-bold text-slate-700">Email admin</label>
+            <input id="loginEmail" type="email" autocomplete="username" placeholder="admin@kampus.ac.id" required class="form-input" />
+          </div>
+          <div>
+            <div class="mb-2 flex items-center justify-between"><label for="loginPassword" class="block text-sm font-bold text-slate-700">Password</label></div>
+            <input id="loginPassword" type="password" autocomplete="current-password" placeholder="Masukkan password" required class="form-input" />
+          </div>
+          <p id="loginError" class="hidden rounded-xl bg-red-50 px-4 py-3 text-xs font-semibold leading-5 text-red-600" role="alert"></p>
+          <button type="submit" class="flex w-full items-center justify-center gap-2 rounded-xl bg-navy px-5 py-3.5 text-sm font-bold text-white shadow-soft transition hover:-translate-y-0.5 hover:bg-blue-900 focus:outline-none focus:ring-4 focus:ring-blue-100">Masuk ke dashboard <span aria-hidden="true">→</span></button>
+        </form>
+      </section>
+    </main>
+
+    <!-- Admin application -->
+    <div id="appView" class="hidden min-h-screen">
+      <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 flex w-72 -translate-x-full flex-col border-r border-blue-100 bg-white transition-transform duration-300 lg:translate-x-0">
+        <div class="flex h-20 items-center gap-3 border-b border-slate-100 px-7">
+          <img src="logo.jpg" alt="Logo Forum Asisten" class="h-10 w-10 rounded-full object-cover shadow-soft" />
+          <span class="text-lg font-extrabold tracking-tight text-ink">Forum<span class="text-navy"> Asisten</span></span>
+        </div>
+        <div class="px-5 pt-7"><p class="mb-3 px-3 text-[10px] font-extrabold uppercase tracking-[0.18em] text-slate-400">Menu utama</p>
+          <nav id="mainNav" class="space-y-1" aria-label="Navigasi admin">
+            <button class="nav-item active" data-page="submissions"><span class="nav-icon">▤</span>Daftar tugas</button>
+            <button class="nav-item" data-page="classes"><span class="nav-icon">▦</span>Kelas</button>
+            <button class="nav-item" data-page="courses"><span class="nav-icon">▣</span>Mata kuliah</button>
+            <button class="nav-item" data-page="admins"><span class="nav-icon">♙</span>Akun admin</button>
+          </nav>
+        </div>
+        <div class="mt-auto p-5"><button id="logoutButton" class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-500 transition hover:bg-red-50 hover:text-red-500"><span class="text-lg">↪</span>Keluar</button></div>
+      </aside>
+      <div id="sidebarBackdrop" class="fixed inset-0 z-30 hidden bg-ink/30 backdrop-blur-sm lg:hidden"></div>
+
+      <div class="lg:pl-72">
+        <header class="sticky top-0 z-20 flex h-20 items-center justify-between border-b border-blue-100/80 bg-[#f7faff]/90 px-5 backdrop-blur-md sm:px-8 lg:px-10">
+          <div class="flex items-center gap-3"><button id="menuButton" class="rounded-xl p-2 text-slate-500 hover:bg-white lg:hidden" aria-label="Buka menu">☰</button><div><p class="text-xs font-semibold text-slate-400">Panel admin / <span id="breadcrumbPage" class="text-navy">Daftar tugas</span></p><h2 id="pageTitle" class="mt-1 text-lg font-extrabold tracking-tight text-ink sm:text-xl">Daftar tugas mahasiswa</h2></div></div>
+          <div class="flex items-center gap-3"><div class="hidden text-right sm:block"><p id="currentAdminEmail" class="text-sm font-bold text-ink">Admin</p><p id="currentAdminRole" class="text-xs text-slate-400">Memuat...</p></div><div id="currentAdminInitials" class="flex h-10 w-10 items-center justify-center rounded-full bg-coral text-sm font-extrabold text-white">AD</div></div>
+        </header>
+
+        <main class="mx-auto max-w-[1440px] px-5 py-7 sm:px-8 lg:px-10 lg:py-9">
+          <!-- Submissions -->
+          <section class="page-section" data-section="submissions">
+            <div class="mb-5 rounded-2xl border border-blue-100 bg-white p-4 shadow-card sm:p-5"><div class="mb-4 flex items-center gap-2"><span class="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-navy">⌕</span><h3 class="font-extrabold text-ink">Filter tugas</h3><button id="clearFilters" class="ml-auto text-xs font-bold text-slate-400 hover:text-coral">Reset filter</button></div><div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><input id="searchStudent" type="search" placeholder="Cari NIM atau nama..." class="form-input" /><select id="filterClass" class="form-input"><option value="">Semua kelas</option></select><select id="filterCourse" class="form-input"><option value="">Semua mata kuliah</option></select><select id="filterMeeting" class="form-input"><option value="">Semua pertemuan</option></select></div></div>
+            <div class="overflow-hidden rounded-2xl border border-blue-100 bg-white shadow-card"><div class="flex items-center justify-between border-b border-slate-100 px-5 py-4"><p id="submissionCount" class="text-sm font-bold text-ink"></p><span class="hidden text-xs text-slate-400 sm:block">Data terbaru di atas</span></div><div class="overflow-x-auto"><table class="w-full min-w-[860px] text-left"><thead class="bg-slate-50/80 text-[11px] font-extrabold uppercase tracking-wider text-slate-400"><tr><th class="px-5 py-3.5">Mahasiswa</th><th class="px-5 py-3.5">Kelas</th><th class="px-5 py-3.5">Mata kuliah</th><th class="px-5 py-3.5">Pertemuan</th><th class="px-5 py-3.5">Berkas</th><th class="px-5 py-3.5">Dikirim</th><th class="px-5 py-3.5 text-right">Aksi</th></tr></thead><tbody id="submissionRows" class="divide-y divide-slate-100 text-sm"></tbody></table></div></div>
+          </section>
+
+          <!-- Classes -->
+          <section class="page-section hidden" data-section="classes">
+            <div class="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><h1 class="text-2xl font-extrabold tracking-tight text-ink sm:text-3xl">Kelola kelas</h1><p class="mt-2 text-sm text-slate-500">Tambah, ubah, atau hapus data kelas perkuliahan.</p></div><button class="open-data-modal rounded-xl bg-navy px-4 py-3 text-sm font-bold text-white shadow-soft hover:bg-blue-900" data-type="class" data-mode="add">+ Tambah kelas</button></div>
+            <div class="overflow-hidden rounded-2xl border border-blue-100 bg-white shadow-card"><div class="border-b border-slate-100 px-5 py-4"><p id="classCount" class="text-sm font-bold text-ink"></p></div><div class="overflow-x-auto"><table class="w-full min-w-[520px] text-left"><thead class="bg-slate-50/80 text-[11px] font-extrabold uppercase tracking-wider text-slate-400"><tr><th class="px-5 py-3.5">Kode</th><th class="px-5 py-3.5">Nama kelas</th><th class="px-5 py-3.5 text-right">Aksi</th></tr></thead><tbody id="classRows" class="divide-y divide-slate-100 text-sm"></tbody></table></div></div>
+          </section>
+
+          <!-- Courses -->
+          <section class="page-section hidden" data-section="courses">
+            <div class="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><h1 class="text-2xl font-extrabold tracking-tight text-ink sm:text-3xl">Kelola mata kuliah</h1><p class="mt-2 text-sm text-slate-500">Atur mata kuliah yang tersedia untuk pengumpulan tugas.</p></div><button class="open-data-modal rounded-xl bg-navy px-4 py-3 text-sm font-bold text-white shadow-soft hover:bg-blue-900" data-type="course" data-mode="add">+ Tambah mata kuliah</button></div>
+            <div class="overflow-hidden rounded-2xl border border-blue-100 bg-white shadow-card"><div class="border-b border-slate-100 px-5 py-4"><p id="courseCount" class="text-sm font-bold text-ink"></p></div><div class="overflow-x-auto"><table class="w-full min-w-[520px] text-left"><thead class="bg-slate-50/80 text-[11px] font-extrabold uppercase tracking-wider text-slate-400"><tr><th class="px-5 py-3.5">Kode</th><th class="px-5 py-3.5">Nama mata kuliah</th><th class="px-5 py-3.5 text-right">Aksi</th></tr></thead><tbody id="courseRows" class="divide-y divide-slate-100 text-sm"></tbody></table></div></div>
+          </section>
+
+          <!-- Admins -->
+          <section class="page-section hidden" data-section="admins">
+            <div class="grid gap-6 xl:grid-cols-[0.75fr_1.25fr]">
+              <form id="adminForm" class="h-fit rounded-2xl border border-blue-100 bg-white p-5 shadow-card sm:p-6"><div class="mb-5"><span class="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-xl text-navy">♙</span><h3 class="font-extrabold text-ink">Tambah akun baru</h3><p class="mt-1 text-xs leading-5 text-slate-400">Role akun baru otomatis menjadi Anggota.</p></div><div class="space-y-4"><div><label for="adminEmail" class="mb-2 block text-sm font-bold text-slate-700">Email <span class="text-coral">*</span></label><input id="adminEmail" type="email" placeholder="anggota@kampus.ac.id" required class="form-input" /></div><div><label for="adminPassword" class="mb-2 block text-sm font-bold text-slate-700">Password <span class="text-coral">*</span></label><input id="adminPassword" type="password" minlength="8" placeholder="Minimal 8 karakter" required class="form-input" /></div><p id="adminFormMessage" class="hidden rounded-xl px-3 py-2.5 text-xs font-semibold" role="status"></p><button class="w-full rounded-xl bg-navy px-4 py-3 text-sm font-bold text-white shadow-soft hover:bg-blue-900" type="submit">Simpan akun anggota</button></div></form>
+              <div class="overflow-hidden rounded-2xl border border-blue-100 bg-white shadow-card"><div class="border-b border-slate-100 px-5 py-5"><h3 class="font-extrabold text-ink">Daftar akun</h3><p id="adminCount" class="mt-1 text-xs text-slate-400"></p></div><div id="adminRows" class="divide-y divide-slate-100"></div></div>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <!-- Add/edit modal -->
+    <div id="dataModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-ink/40 p-5 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="dataModalTitle"><div class="modal-card w-full max-w-md rounded-[1.75rem] bg-white p-7 shadow-2xl"><div class="mb-6 flex items-start justify-between"><div><p id="dataModalEyebrow" class="mb-1 text-xs font-extrabold uppercase tracking-[0.15em] text-coral">Data baru</p><h2 id="dataModalTitle" class="text-xl font-extrabold text-ink">Tambah data</h2></div><button id="closeDataModal" class="rounded-lg p-1 text-xl text-slate-400 hover:bg-slate-100" aria-label="Tutup">×</button></div><form id="dataForm" class="space-y-4"><div><label for="dataCode" class="mb-2 block text-sm font-bold text-slate-700">Kode <span class="text-coral">*</span></label><input id="dataCode" required class="form-input" placeholder="Contoh: TI-1A" /></div><div><label for="dataName" class="mb-2 block text-sm font-bold text-slate-700">Nama <span class="text-coral">*</span></label><input id="dataName" required class="form-input" placeholder="Masukkan nama" /></div><p id="dataFormError" class="hidden text-xs font-semibold text-red-500"></p><button class="w-full rounded-xl bg-navy px-4 py-3.5 text-sm font-bold text-white hover:bg-blue-900" type="submit">Simpan perubahan</button></form></div></div>
+    <div id="toast" class="pointer-events-none fixed bottom-6 right-6 z-[60] hidden max-w-sm rounded-xl bg-ink px-4 py-3 text-sm font-semibold text-white shadow-2xl"></div>
+    <script src="script.js?v=20260930-2"></script>
+  </body>
+</html>

@@ -1,5 +1,6 @@
 const form = document.querySelector('#submissionForm');
 const nimInput = document.querySelector('#nim');
+const nameInput = document.querySelector('#nama');
 const classSelect = document.querySelector('#kelas');
 const courseSelect = document.querySelector('#mataKuliah');
 const fileInput = document.querySelector('#file');
@@ -80,6 +81,10 @@ async function discoverApiBaseUrl() {
 
 nimInput.addEventListener('input', () => {
   nimInput.value = nimInput.value.toUpperCase();
+});
+
+nameInput.addEventListener('input', () => {
+  nameInput.value = nameInput.value.toUpperCase();
 });
 
 function showFileError(message) {

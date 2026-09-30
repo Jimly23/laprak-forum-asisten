@@ -162,12 +162,12 @@ function renderSubmissions() {
 
 function renderClasses() {
   $('#classCount').textContent = `${data.classes.length} kelas terdaftar`;
-  $('#classRows').innerHTML = data.classes.length ? data.classes.map((item) => `<tr class="hover:bg-blue-50/40"><td class="px-5 py-4 font-bold text-navy">${escapeHtml(item.code)}</td><td class="px-5 py-4 font-semibold text-ink">${escapeHtml(item.name)}</td><td class="px-5 py-4 text-right"><button class="mr-3 text-xs font-bold text-navy hover:text-coral" data-edit="class" data-id="${item.id}">Edit</button><button class="text-xs font-bold text-red-400 hover:text-red-600" data-delete="class" data-id="${item.id}">Hapus</button></td></tr>`).join('') : '<tr><td colspan="3" class="px-5 py-12 text-center text-sm text-slate-400">Belum ada kelas.</td></tr>';
+  $('#classRows').innerHTML = data.classes.length ? data.classes.map((item) => `<tr class="hover:bg-blue-50/40"><td class="px-5 py-4 font-semibold text-ink">${escapeHtml(item.name)}</td><td class="px-5 py-4 text-right"><button class="mr-3 text-xs font-bold text-navy hover:text-coral" data-edit="class" data-id="${item.id}">Edit</button><button class="text-xs font-bold text-red-400 hover:text-red-600" data-delete="class" data-id="${item.id}">Hapus</button></td></tr>`).join('') : '<tr><td colspan="2" class="px-5 py-12 text-center text-sm text-slate-400">Belum ada kelas.</td></tr>';
 }
 
 function renderCourses() {
   $('#courseCount').textContent = `${data.courses.length} mata kuliah terdaftar`;
-  $('#courseRows').innerHTML = data.courses.length ? data.courses.map((item) => `<tr class="hover:bg-blue-50/40"><td class="px-5 py-4 font-bold text-navy">${escapeHtml(item.code)}</td><td class="px-5 py-4 font-semibold text-ink">${escapeHtml(item.name)}</td><td class="px-5 py-4 text-right"><button class="mr-3 text-xs font-bold text-navy hover:text-coral" data-edit="course" data-id="${item.id}">Edit</button><button class="text-xs font-bold text-red-400 hover:text-red-600" data-delete="course" data-id="${item.id}">Hapus</button></td></tr>`).join('') : '<tr><td colspan="3" class="px-5 py-12 text-center text-sm text-slate-400">Belum ada mata kuliah.</td></tr>';
+  $('#courseRows').innerHTML = data.courses.length ? data.courses.map((item) => `<tr class="hover:bg-blue-50/40"><td class="px-5 py-4 font-semibold text-ink">${escapeHtml(item.name)}</td><td class="px-5 py-4 text-right"><button class="mr-3 text-xs font-bold text-navy hover:text-coral" data-edit="course" data-id="${item.id}">Edit</button><button class="text-xs font-bold text-red-400 hover:text-red-600" data-delete="course" data-id="${item.id}">Hapus</button></td></tr>`).join('') : '<tr><td colspan="2" class="px-5 py-12 text-center text-sm text-slate-400">Belum ada mata kuliah.</td></tr>';
 }
 
 function renderAdmins() {
@@ -191,12 +191,12 @@ function openDataModal(type, mode, id = null) {
   const item = mode === 'edit' ? collection.find((entry) => String(entry.id) === String(id)) : null;
   $('#dataModalEyebrow').textContent = mode === 'edit' ? 'Perbarui data' : 'Data baru';
   $('#dataModalTitle').textContent = `${mode === 'edit' ? 'Edit' : 'Tambah'} ${type === 'class' ? 'kelas' : 'mata kuliah'}`;
-  $('#dataCode').value = item?.code || '';
+  $('#dataNameLabel').innerHTML = `${type === 'class' ? 'Nama kelas' : 'Nama mata kuliah'} <span class="text-coral">*</span>`;
   $('#dataName').value = item?.name || '';
   $('#dataFormError').classList.add('hidden');
   $('#dataModal').classList.remove('hidden');
   $('#dataModal').classList.add('flex');
-  $('#dataCode').focus();
+  $('#dataName').focus();
 }
 
 function closeDataModal() {
@@ -317,13 +317,12 @@ document.addEventListener('click', async (event) => {
 
 $('#dataForm').addEventListener('submit', async (event) => {
   event.preventDefault();
-  const code = $('#dataCode').value.trim().toUpperCase();
-  const name = $('#dataName').value.trim();
+  const name = $('#dataName').value.trim().toUpperCase();
   const resource = editing.type === 'class' ? 'classes' : 'courses';
   try {
     await apiRequest(`/${resource}${editing.id ? `/${editing.id}` : ''}`, {
       method: editing.id ? 'PATCH' : 'POST',
-      body: JSON.stringify({ code, name })
+      body: JSON.stringify({ name })
     });
     await loadReferenceData();
     closeDataModal();
@@ -336,6 +335,7 @@ $('#dataForm').addEventListener('submit', async (event) => {
 
 $('#closeDataModal').addEventListener('click', closeDataModal);
 $('#dataModal').addEventListener('click', (event) => { if (event.target === $('#dataModal')) closeDataModal(); });
+$('#dataName').addEventListener('input', (event) => { event.target.value = event.target.value.toUpperCase(); });
 
 $('#adminForm').addEventListener('submit', async (event) => {
   event.preventDefault();

@@ -531,9 +531,9 @@ components:
 
     ReferenceInput:
       type: object
-      required: [code, name]
+      required: [name]
       properties:
-        code: { type: string, maxLength: 30, example: TI-1A }
+        code: { type: string, maxLength: 30, description: Opsional; dibuat otomatis dari name jika tidak dikirim., example: TI-1A }
         name: { type: string, maxLength: 150, example: Teknik Informatika — 1A }
 
     Classroom:

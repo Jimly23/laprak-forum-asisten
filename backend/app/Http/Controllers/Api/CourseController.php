@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Course;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class CourseController extends Controller
@@ -61,12 +62,13 @@ class CourseController extends Controller
 
     private function validatedData(Request $request, ?Course $course = null): array
     {
-        $request->merge(['code' => strtoupper(trim((string) $request->input('code')))]);
+        $name = strtoupper(trim((string) $request->input('name')));
+        $code = trim((string) $request->input('code')) ?: Str::upper(Str::slug($name, '-'));
+        $request->merge(['code' => $code, 'name' => $name]);
         $data = $request->validate([
             'code' => ['required', 'string', 'max:30', Rule::unique('courses', 'code')->ignore($course?->id)],
             'name' => ['required', 'string', 'max:150'],
         ]);
-        $data['name'] = trim($data['name']);
 
         return $data;
     }

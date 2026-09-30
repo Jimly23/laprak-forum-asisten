@@ -99,9 +99,8 @@ class ApiTest extends TestCase
         Sanctum::actingAs($admin);
 
         $classResponse = $this->postJson('/api/v1/classes', [
-            'code' => 'ti-2a',
-            'name' => 'Teknik Informatika — 2A',
-        ])->assertCreated()->assertJsonPath('data.code', 'TI-2A');
+            'name' => 'ti-2a',
+        ])->assertCreated()->assertJsonPath('data.code', 'TI-2A')->assertJsonPath('data.name', 'TI-2A');
         $classroom = Classroom::query()->findOrFail($classResponse->json('data.id'));
         $course = Course::query()->create(['code' => 'IF301', 'name' => 'Pemrograman API']);
         Submission::query()->create([

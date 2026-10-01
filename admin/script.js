@@ -21,6 +21,14 @@ function escapeHtml(value) {
   return div.innerHTML;
 }
 
+function getOptionLabel(item) {
+  const code = String(item.code ?? '').trim();
+  const name = String(item.name ?? '').trim();
+
+  if (!name || code.localeCompare(name, undefined, { sensitivity: 'accent' }) === 0) return code || name;
+  return `${code} — ${name}`;
+}
+
 function showToast(message) {
   const toast = $('#toast');
   toast.textContent = message;
@@ -165,8 +173,8 @@ function renderFilterOptions() {
   const selectedClass = $('#filterClass').value;
   const selectedCourse = $('#filterCourse').value;
   const selectedMeeting = $('#filterMeeting').value;
-  $('#filterClass').innerHTML = '<option value="">Semua kelas</option>' + data.classes.map((item) => `<option value="${item.id}">${escapeHtml(item.code)} — ${escapeHtml(item.name)}</option>`).join('');
-  $('#filterCourse').innerHTML = '<option value="">Semua mata kuliah</option>' + data.courses.map((item) => `<option value="${item.id}">${escapeHtml(item.code)} — ${escapeHtml(item.name)}</option>`).join('');
+  $('#filterClass').innerHTML = '<option value="">Semua kelas</option>' + data.classes.map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(getOptionLabel(item))}</option>`).join('');
+  $('#filterCourse').innerHTML = '<option value="">Semua mata kuliah</option>' + data.courses.map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(getOptionLabel(item))}</option>`).join('');
   $('#filterMeeting').innerHTML = '<option value="">Semua pertemuan</option>' + Array.from({ length: 14 }, (_, index) => `<option value="${index + 1}">Pertemuan ${index + 1}</option>`).join('');
   $('#filterClass').value = selectedClass;
   $('#filterCourse').value = selectedCourse;

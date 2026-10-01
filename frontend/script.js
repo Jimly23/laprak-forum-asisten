@@ -48,6 +48,29 @@ function setSubmitting(isSubmitting) {
   submitButtonArrow.classList.toggle('hidden', isSubmitting);
 }
 
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+function getOptionLabel(item) {
+  const code = String(item.code ?? '').trim();
+  const name = String(item.name ?? '').trim();
+
+  if (!name || code.localeCompare(name, undefined, { sensitivity: 'accent' }) === 0) return code || name;
+  return `${code} — ${name}`;
+}
+
+function renderOptions(items, placeholder) {
+  return `<option value="" disabled selected>${placeholder}</option>${items
+    .map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(getOptionLabel(item))}</option>`)
+    .join('')}`;
+}
+
 async function loadFormOptions() {
   try {
     await discoverApiBaseUrl();
@@ -57,8 +80,10 @@ async function loadFormOptions() {
     ]);
     if (!classResponse.ok || !courseResponse.ok) throw new Error('Data form gagal dimuat.');
     const [classResult, courseResult] = await Promise.all([classResponse.json(), courseResponse.json()]);
-    classSelect.innerHTML = '<option value="" disabled selected>Pilih kelas kamu</option>' + classResult.data.map((item) => `<option value="${item.id}">${item.code} — ${item.name}</option>`).join('');
-    courseSelect.innerHTML = '<option value="" disabled selected>Pilih mata kuliah</option>' + courseResult.data.map((item) => `<option value="${item.id}">${item.code} — ${item.name}</option>`).join('');
+    // Render compact labels after loading both lists. If code and name are the
+    // same (for example, SI24A), only one value is shown in the dropdown.
+    classSelect.innerHTML = renderOptions(classResult.data, 'Pilih kelas kamu');
+    courseSelect.innerHTML = renderOptions(courseResult.data, 'Pilih mata kuliah');
   } catch {
     classSelect.innerHTML = '<option value="" disabled selected>Kelas gagal dimuat</option>';
     courseSelect.innerHTML = '<option value="" disabled selected>Mata kuliah gagal dimuat</option>';

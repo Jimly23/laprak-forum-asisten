@@ -29,6 +29,17 @@ function showToast(message) {
   showToast.timer = window.setTimeout(() => toast.classList.add('hidden'), 3000);
 }
 
+function setCrudLoading(isLoading, message = 'Memproses perubahan...') {
+  $('#crudLoadingText').textContent = message;
+  $('#crudLoading').classList.toggle('hidden', !isLoading);
+  $('#crudLoading').classList.toggle('flex', isLoading);
+}
+
+function showSubmissionLoading() {
+  $('#submissionCount').textContent = 'Memuat data...';
+  $('#submissionRows').innerHTML = '<tr><td colspan="7" class="px-5 py-12 text-center"><span class="loading-spinner text-navy" aria-hidden="true"></span><span class="ml-2 text-sm font-semibold text-slate-400">Memuat daftar tugas...</span></td></tr>';
+}
+
 function formatDate(value) {
   if (!value) return '-';
   return new Intl.DateTimeFormat('id-ID', {
@@ -125,10 +136,17 @@ function currentSubmissionQuery() {
 }
 
 async function loadSubmissions() {
-  const result = await apiRequest(`/submissions?${currentSubmissionQuery()}`);
-  data.submissions = result.data;
-  submissionTotal = result.meta.total;
-  renderSubmissions();
+  showSubmissionLoading();
+  try {
+    const result = await apiRequest(`/submissions?${currentSubmissionQuery()}`);
+    data.submissions = result.data;
+    submissionTotal = result.meta.total;
+    renderSubmissions();
+  } catch (error) {
+    $('#submissionCount').textContent = 'Gagal memuat tugas';
+    $('#submissionRows').innerHTML = `<tr><td colspan="7" class="px-5 py-12 text-center text-sm font-semibold text-red-500">${escapeHtml(error.message)}</td></tr>`;
+    throw error;
+  }
 }
 
 async function loadAdmins() {
@@ -294,11 +312,13 @@ document.addEventListener('click', async (event) => {
     const collection = type === 'class' ? data.classes : data.courses;
     const item = collection.find((entry) => String(entry.id) === String(deleteButton.dataset.id));
     if (item && window.confirm(`Hapus ${item.name}?`)) {
+      setCrudLoading(true, 'Menghapus data...');
       try {
         await apiRequest(`/${type === 'class' ? 'classes' : 'courses'}/${item.id}`, { method: 'DELETE' });
         await loadReferenceData();
         showToast('Data berhasil dihapus.');
       } catch (error) { showToast(error.message); }
+      finally { setCrudLoading(false); }
     }
   }
 
@@ -319,6 +339,7 @@ $('#dataForm').addEventListener('submit', async (event) => {
   event.preventDefault();
   const name = $('#dataName').value.trim().toUpperCase();
   const resource = editing.type === 'class' ? 'classes' : 'courses';
+  setCrudLoading(true, editing.id ? 'Memperbarui data...' : 'Menyimpan data...');
   try {
     await apiRequest(`/${resource}${editing.id ? `/${editing.id}` : ''}`, {
       method: editing.id ? 'PATCH' : 'POST',
@@ -330,6 +351,8 @@ $('#dataForm').addEventListener('submit', async (event) => {
   } catch (error) {
     $('#dataFormError').textContent = error.message;
     $('#dataFormError').classList.remove('hidden');
+  } finally {
+    setCrudLoading(false);
   }
 });
 

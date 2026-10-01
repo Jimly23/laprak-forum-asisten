@@ -15,6 +15,8 @@ const submittedFile = document.querySelector('#submittedFile');
 const formError = document.querySelector('#formError');
 const submitButton = document.querySelector('#submitButton');
 const submitButtonText = document.querySelector('#submitButtonText');
+const submitButtonSpinner = document.querySelector('#submitButtonSpinner');
+const submitButtonArrow = document.querySelector('#submitButtonArrow');
 
 const API_CANDIDATES = [
   window.KUMPULTUGAS_API_URL,
@@ -42,6 +44,8 @@ function showFormError(message) {
 function setSubmitting(isSubmitting) {
   submitButton.disabled = isSubmitting;
   submitButtonText.textContent = isSubmitting ? 'Mengirim tugas...' : 'Kirim tugas sekarang';
+  submitButtonSpinner.classList.toggle('hidden', !isSubmitting);
+  submitButtonArrow.classList.toggle('hidden', isSubmitting);
 }
 
 async function loadFormOptions() {

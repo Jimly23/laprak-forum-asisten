@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Classroom;
 use App\Models\Course;
+use App\Models\Grade;
 use App\Models\Submission;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -133,9 +134,90 @@ class ApiTest extends TestCase
         $this->assertDatabaseHas('users', ['email' => 'anggota@kampus.ac.id', 'role' => 'member']);
     }
 
+    public function test_admin_can_create_and_update_a_grade_from_the_latest_resubmission(): void
+    {
+        $admin = User::factory()->create(['role' => 'member']);
+        Sanctum::actingAs($admin);
+        [$classroom, $course] = $this->references();
+        $firstSubmission = $this->submission($classroom, $course, ['stored_path' => 'submissions/first.pdf']);
+        $latestSubmission = $this->submission($classroom, $course, ['stored_path' => 'submissions/latest.pdf']);
+
+        $this->putJson('/api/v1/submissions/'.$firstSubmission->id.'/grade', ['score' => 82.5])
+            ->assertCreated()
+            ->assertJsonPath('data.score', 82.5);
+
+        $this->putJson('/api/v1/submissions/'.$latestSubmission->id.'/grade', ['score' => 91.25])
+            ->assertOk()
+            ->assertJsonPath('data.score', 91.25);
+
+        $this->assertDatabaseCount('grades', 1);
+        $this->assertDatabaseHas('grades', [
+            'submission_id' => $latestSubmission->id,
+            'nim' => 'TI001',
+            'class_id' => $classroom->id,
+            'course_id' => $course->id,
+            'meeting' => 1,
+            'score' => 91.25,
+            'graded_by' => $admin->id,
+        ]);
+
+        $this->getJson('/api/v1/grades')
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.nim', 'TI001')
+            ->assertJsonPath('data.0.class.code', 'TI-1A')
+            ->assertJsonPath('data.0.course.code', 'IF101')
+            ->assertJsonPath('data.0.meetings.1', 91.25);
+    }
+
+    public function test_grade_validation_and_authentication_are_enforced(): void
+    {
+        [$classroom, $course] = $this->references();
+        $submission = $this->submission($classroom, $course);
+
+        $this->putJson('/api/v1/submissions/'.$submission->id.'/grade', ['score' => 80])->assertUnauthorized();
+
+        Sanctum::actingAs(User::factory()->create(['role' => 'member']));
+        $this->putJson('/api/v1/submissions/'.$submission->id.'/grade', ['score' => 101])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('score');
+        $this->putJson('/api/v1/submissions/'.$submission->id.'/grade', ['score' => 90.123])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('score');
+    }
+
+    public function test_admin_can_export_one_group_as_excel_and_all_groups_as_zip(): void
+    {
+        $admin = User::factory()->create(['role' => 'member']);
+        Sanctum::actingAs($admin);
+        [$classroom, $course] = $this->references();
+        $submission = $this->submission($classroom, $course);
+        Grade::query()->create([
+            'submission_id' => $submission->id,
+            'nim' => $submission->nim,
+            'student_name' => $submission->student_name,
+            'class_id' => $classroom->id,
+            'course_id' => $course->id,
+            'meeting' => $submission->meeting,
+            'score' => 88,
+            'graded_by' => $admin->id,
+        ]);
+
+        $this->get('/api/v1/grades/export?class_id='.$classroom->id.'&course_id='.$course->id)
+            ->assertOk()
+            ->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            ->assertDownload('Nilai_IF101_Pemrograman_Web_TI_1A.xlsx');
+
+        $this->get('/api/v1/grades/export-all')
+            ->assertOk()
+            ->assertHeader('content-type', 'application/zip')
+            ->assertDownload('Rekap_Nilai.zip');
+    }
+
     public function test_protected_routes_require_authentication(): void
     {
         $this->getJson('/api/v1/submissions')->assertUnauthorized();
+        $this->getJson('/api/v1/grades')->assertUnauthorized();
         $this->postJson('/api/v1/classes', ['code' => 'A', 'name' => 'A'])->assertUnauthorized();
     }
 
@@ -145,5 +227,20 @@ class ApiTest extends TestCase
             Classroom::query()->create(['code' => 'TI-1A', 'name' => 'Teknik Informatika — 1A']),
             Course::query()->create(['code' => 'IF101', 'name' => 'Pemrograman Web']),
         ];
+    }
+
+    private function submission(Classroom $classroom, Course $course, array $overrides = []): Submission
+    {
+        return Submission::query()->create(array_merge([
+            'nim' => 'TI001',
+            'student_name' => 'Alya Putri',
+            'class_id' => $classroom->id,
+            'course_id' => $course->id,
+            'meeting' => 1,
+            'original_filename' => 'laporan.pdf',
+            'stored_path' => 'submissions/laporan.pdf',
+            'mime_type' => 'application/pdf',
+            'file_size' => 1024,
+        ], $overrides));
     }
 }

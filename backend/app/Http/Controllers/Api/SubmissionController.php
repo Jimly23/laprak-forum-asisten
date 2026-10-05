@@ -23,7 +23,7 @@ class SubmissionController extends Controller
             'per_page' => ['nullable', 'integer', 'between:1,100'],
         ]);
 
-        $query = Submission::query()->with(['classroom', 'course'])->latest();
+        $query = Submission::query()->with(['classroom', 'course', 'grade'])->latest();
         if (! empty($filters['search'])) {
             $search = $filters['search'];
             $query->where(fn ($builder) => $builder
@@ -84,7 +84,7 @@ class SubmissionController extends Controller
                 'stored_path' => $path,
                 'mime_type' => $file->getMimeType() ?: 'application/pdf',
                 'file_size' => $file->getSize(),
-            ])->load(['classroom', 'course']);
+            ])->load(['classroom', 'course', 'grade']);
         } catch (\Throwable $exception) {
             Storage::disk('local')->delete($path);
             throw $exception;
@@ -101,7 +101,7 @@ class SubmissionController extends Controller
     {
         return response()->json([
             'success' => true,
-            'data' => $this->submissionData($submission->load(['classroom', 'course'])),
+            'data' => $this->submissionData($submission->load(['classroom', 'course', 'grade'])),
         ]);
     }
 
@@ -144,6 +144,12 @@ class SubmissionController extends Controller
                 'size' => $submission->file_size,
             ],
             'submitted_at' => $submission->created_at?->toISOString(),
+            'grade' => $submission->grade ? [
+                'id' => $submission->grade->id,
+                'score' => (float) $submission->grade->score,
+                'graded_by' => $submission->grade->graded_by,
+                'graded_at' => $submission->grade->updated_at?->toISOString(),
+            ] : null,
         ];
     }
 }

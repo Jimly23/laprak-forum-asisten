@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ClassroomController;
 use App\Http\Controllers\Api\CourseController;
+use App\Http\Controllers\Api\GradeController;
 use App\Http\Controllers\Api\SubmissionController;
 use Illuminate\Support\Facades\Route;
 
@@ -20,6 +21,11 @@ Route::prefix('v1')->group(function () {
         Route::get('/submissions', [SubmissionController::class, 'index']);
         Route::get('/submissions/{submission}', [SubmissionController::class, 'show']);
         Route::get('/submissions/{submission}/file', [SubmissionController::class, 'file']);
+        Route::put('/submissions/{submission}/grade', [GradeController::class, 'store']);
+
+        Route::get('/grades', [GradeController::class, 'index']);
+        Route::get('/grades/export', [GradeController::class, 'export']);
+        Route::get('/grades/export-all', [GradeController::class, 'exportAll']);
 
         Route::post('/classes', [ClassroomController::class, 'store']);
         Route::get('/classes/{classroom}', [ClassroomController::class, 'show']);

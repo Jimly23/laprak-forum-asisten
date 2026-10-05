@@ -7,10 +7,13 @@ let API_BASE_URL = API_CANDIDATES[0];
 let apiResolved = false;
 const AUTH_TOKEN_KEY = 'kumpultugas-admin-token';
 
-const data = { classes: [], courses: [], admins: [], submissions: [] };
+const data = { classes: [], courses: [], admins: [], submissions: [], grades: [] };
 let currentUser = null;
 let editing = { type: null, id: null };
 let submissionTotal = 0;
+let gradeTotal = 0;
+let activeSubmission = null;
+let activePdfUrl = null;
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -53,6 +56,11 @@ function formatDate(value) {
   return new Intl.DateTimeFormat('id-ID', {
     day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
   }).format(new Date(value));
+}
+
+function formatScore(value) {
+  if (value === null || value === undefined || value === '') return '—';
+  return Number(value).toLocaleString('id-ID', { maximumFractionDigits: 2 });
 }
 
 function roleLabel(role) {
@@ -164,26 +172,63 @@ async function loadAdmins() {
   renderAdmins();
 }
 
+function currentGradeQuery() {
+  const params = new URLSearchParams();
+  const search = $('#searchGradeStudent').value.trim();
+  if (search) params.set('search', search);
+  if ($('#gradeFilterClass').value) params.set('class_id', $('#gradeFilterClass').value);
+  if ($('#gradeFilterCourse').value) params.set('course_id', $('#gradeFilterCourse').value);
+  return params.toString();
+}
+
+async function loadGrades() {
+  $('#gradeCount').textContent = 'Memuat data...';
+  $('#gradeRows').innerHTML = '<tr><td colspan="18" class="px-5 py-12 text-center"><span class="loading-spinner text-navy" aria-hidden="true"></span><span class="ml-2 text-sm font-semibold text-slate-400">Memuat rekap nilai...</span></td></tr>';
+  try {
+    const query = currentGradeQuery();
+    const result = await apiRequest(`/grades${query ? `?${query}` : ''}`);
+    data.grades = result.data;
+    gradeTotal = result.meta.total;
+    renderGrades();
+  } catch (error) {
+    $('#gradeCount').textContent = 'Gagal memuat nilai';
+    $('#gradeRows').innerHTML = `<tr><td colspan="18" class="px-5 py-12 text-center text-sm font-semibold text-red-500">${escapeHtml(error.message)}</td></tr>`;
+    throw error;
+  }
+}
+
 async function loadAppData() {
   await loadReferenceData();
-  await Promise.all([loadSubmissions(), loadAdmins()]);
+  await Promise.all([loadSubmissions(), loadGrades(), loadAdmins()]);
 }
 
 function renderFilterOptions() {
   const selectedClass = $('#filterClass').value;
   const selectedCourse = $('#filterCourse').value;
   const selectedMeeting = $('#filterMeeting').value;
+  const selectedGradeClass = $('#gradeFilterClass').value;
+  const selectedGradeCourse = $('#gradeFilterCourse').value;
   $('#filterClass').innerHTML = '<option value="">Semua kelas</option>' + data.classes.map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(getOptionLabel(item))}</option>`).join('');
   $('#filterCourse').innerHTML = '<option value="">Semua mata kuliah</option>' + data.courses.map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(getOptionLabel(item))}</option>`).join('');
   $('#filterMeeting').innerHTML = '<option value="">Semua pertemuan</option>' + Array.from({ length: 14 }, (_, index) => `<option value="${index + 1}">Pertemuan ${index + 1}</option>`).join('');
+  $('#gradeFilterClass').innerHTML = '<option value="">Semua kelas</option>' + data.classes.map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(getOptionLabel(item))}</option>`).join('');
+  $('#gradeFilterCourse').innerHTML = '<option value="">Semua mata kuliah</option>' + data.courses.map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(getOptionLabel(item))}</option>`).join('');
   $('#filterClass').value = selectedClass;
   $('#filterCourse').value = selectedCourse;
   $('#filterMeeting').value = selectedMeeting;
+  $('#gradeFilterClass').value = selectedGradeClass;
+  $('#gradeFilterCourse').value = selectedGradeCourse;
 }
 
 function renderSubmissions() {
   $('#submissionCount').textContent = `${submissionTotal} tugas ditemukan`;
-  $('#submissionRows').innerHTML = data.submissions.length ? data.submissions.map((item) => `<tr class="transition hover:bg-blue-50/40"><td class="px-5 py-4"><p class="font-bold text-ink">${escapeHtml(item.student_name)}</p><p class="mt-0.5 text-xs text-slate-400">${escapeHtml(item.nim)}</p></td><td class="px-5 py-4"><span class="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">${escapeHtml(item.class.code)}</span></td><td class="px-5 py-4"><p class="font-semibold text-slate-600">${escapeHtml(item.course.name)}</p><p class="mt-0.5 text-xs text-slate-400">${escapeHtml(item.course.code)}</p></td><td class="px-5 py-4"><span class="whitespace-nowrap rounded-lg bg-orange-50 px-2.5 py-1 text-xs font-bold text-orange-600">Ke-${item.meeting}</span></td><td class="px-5 py-4"><span class="inline-flex items-center gap-2 text-xs font-bold text-navy"><span class="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50 text-[9px]">PDF</span>${escapeHtml(item.file.name)}</span></td><td class="whitespace-nowrap px-5 py-4 text-xs text-slate-500">${formatDate(item.submitted_at)}</td><td class="px-5 py-4 text-right"><button class="rounded-lg bg-navy px-3 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-blue-900" data-view-task="${item.id}">Lihat</button></td></tr>`).join('') : '<tr><td colspan="7" class="px-5 py-12 text-center text-sm text-slate-400">Tidak ada tugas yang sesuai dengan filter.</td></tr>';
+  $('#submissionRows').innerHTML = data.submissions.length ? data.submissions.map((item) => `<tr class="transition hover:bg-blue-50/40"><td class="px-5 py-4"><p class="font-bold text-ink">${escapeHtml(item.student_name)}</p><p class="mt-0.5 text-xs text-slate-400">${escapeHtml(item.nim)}</p></td><td class="px-5 py-4"><span class="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">${escapeHtml(item.class.code)}</span></td><td class="px-5 py-4"><p class="font-semibold text-slate-600">${escapeHtml(item.course.name)}</p><p class="mt-0.5 text-xs text-slate-400">${escapeHtml(item.course.code)}</p></td><td class="px-5 py-4"><span class="whitespace-nowrap rounded-lg bg-orange-50 px-2.5 py-1 text-xs font-bold text-orange-600">Ke-${item.meeting}</span></td><td class="px-5 py-4"><span class="inline-flex items-center gap-2 text-xs font-bold text-navy"><span class="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50 text-[9px]">PDF</span>${escapeHtml(item.file.name)}</span></td><td class="whitespace-nowrap px-5 py-4 text-xs text-slate-500">${formatDate(item.submitted_at)}</td><td class="px-5 py-4 text-right"><div class="flex items-center justify-end gap-2">${item.grade ? `<span class="rounded-lg bg-emerald-50 px-2.5 py-2 text-xs font-extrabold text-emerald-600">${formatScore(item.grade.score)}</span>` : ''}<button class="whitespace-nowrap rounded-lg bg-navy px-3 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-blue-900" data-view-task="${item.id}">Lihat & nilai</button></div></td></tr>`).join('') : '<tr><td colspan="7" class="px-5 py-12 text-center text-sm text-slate-400">Tidak ada tugas yang sesuai dengan filter.</td></tr>';
+}
+
+function renderGrades() {
+  $('#gradeHeaders').innerHTML = '<th class="w-[9.5rem] px-4 py-3.5">NIM</th><th class="w-[14rem] px-4 py-3.5">Nama</th><th class="px-4 py-3.5">Kelas</th><th class="px-4 py-3.5">Mata kuliah</th>' + Array.from({ length: 14 }, (_, index) => `<th class="px-3 py-3.5 text-center">Pertemuan ${index + 1}</th>`).join('');
+  $('#gradeCount').textContent = `${gradeTotal} baris nilai ditemukan`;
+  $('#gradeRows').innerHTML = data.grades.length ? data.grades.map((item) => `<tr class="bg-white hover:bg-blue-50/40"><td class="w-[9.5rem] px-4 py-4 font-extrabold text-ink">${escapeHtml(item.nim)}</td><td class="w-[14rem] px-4 py-4 font-semibold text-slate-700">${escapeHtml(item.student_name)}</td><td class="whitespace-nowrap px-4 py-4"><span class="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">${escapeHtml(item.class.code)}</span></td><td class="min-w-[14rem] px-4 py-4"><p class="font-semibold text-slate-700">${escapeHtml(item.course.name)}</p><p class="text-xs text-slate-400">${escapeHtml(item.course.code)}</p></td>${Array.from({ length: 14 }, (_, index) => { const score = item.meetings[String(index + 1)] ?? item.meetings[index + 1]; return `<td class="px-3 py-4 text-center"><span class="${score === null || score === undefined ? 'text-slate-300' : 'font-extrabold text-navy'}">${formatScore(score)}</span></td>`; }).join('')}</tr>`).join('') : '<tr><td colspan="18" class="px-5 py-12 text-center text-sm text-slate-400">Belum ada nilai yang sesuai dengan filter.</td></tr>';
 }
 
 function renderClasses() {
@@ -205,7 +250,7 @@ function showPage(page) {
   if (page === 'admins' && currentUser?.role !== 'super_admin') return;
   $$('.page-section').forEach((section) => section.classList.toggle('hidden', section.dataset.section !== page));
   $$('.nav-item').forEach((item) => item.classList.toggle('active', item.dataset.page === page));
-  const titles = { submissions: ['Daftar tugas', 'Daftar tugas mahasiswa'], classes: ['Kelas', 'Kelola kelas'], courses: ['Mata kuliah', 'Kelola mata kuliah'], admins: ['Akun admin', 'Akun admin'] };
+  const titles = { submissions: ['Daftar tugas', 'Daftar tugas mahasiswa'], grades: ['Nilai', 'Rekap nilai mahasiswa'], classes: ['Kelas', 'Kelola kelas'], courses: ['Mata kuliah', 'Kelola mata kuliah'], admins: ['Akun admin', 'Akun admin'] };
   $('#breadcrumbPage').textContent = titles[page][0];
   $('#pageTitle').textContent = titles[page][1];
   closeSidebar();
@@ -235,29 +280,97 @@ function closeSidebar() {
   $('#sidebarBackdrop').classList.add('hidden');
 }
 
-async function openSubmissionPdf(id) {
-  const previewWindow = window.open('', '_blank');
-  if (previewWindow) previewWindow.document.body.textContent = 'Memuat PDF...';
+async function fetchProtectedBlob(path, accept) {
+  await discoverApiBaseUrl();
+  const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    headers: { Authorization: `Bearer ${token}`, Accept: accept }
+  });
+  if (response.status === 401) {
+    sessionStorage.removeItem(AUTH_TOKEN_KEY);
+    showLogin();
+    throw new Error('Sesi telah berakhir. Silakan login kembali.');
+  }
+  if (!response.ok) {
+    const result = await response.json().catch(() => ({}));
+    const validationMessage = result.errors ? Object.values(result.errors)[0]?.[0] : null;
+    throw new Error(validationMessage || result.message || 'File tidak dapat diproses.');
+  }
+  const disposition = response.headers.get('Content-Disposition') || '';
+  const encodedFilename = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+  const plainFilename = disposition.match(/filename="?([^";]+)"?/i)?.[1];
+  let filename = plainFilename || '';
+  if (encodedFilename) {
+    try { filename = decodeURIComponent(encodedFilename); } catch { filename = encodedFilename; }
+  }
+  return { blob: await response.blob(), filename };
+}
+
+function closeSubmissionReview() {
+  activeSubmission = null;
+  $('#submissionPdf').src = 'about:blank';
+  if (activePdfUrl) URL.revokeObjectURL(activePdfUrl);
+  activePdfUrl = null;
+  $('#reviewModal').classList.add('hidden');
+  $('#reviewModal').classList.remove('flex');
+  document.body.classList.remove('review-open');
+}
+
+async function openSubmissionReview(id) {
+  let submission = data.submissions.find((item) => String(item.id) === String(id));
   try {
-    const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
-    const response = await fetch(`${API_BASE_URL}/submissions/${id}/file`, {
-      headers: { Authorization: `Bearer ${token}`, Accept: 'application/pdf' }
-    });
-    if (!response.ok) {
-      const result = await response.json().catch(() => ({}));
-      throw new Error(result.message || 'Berkas tidak dapat dibuka.');
-    }
-    const pdfUrl = URL.createObjectURL(await response.blob());
-    if (previewWindow) {
-      previewWindow.opener = null;
-      previewWindow.location.href = pdfUrl;
-    } else {
-      window.open(pdfUrl, '_blank');
-    }
-    window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 60000);
+    if (!submission) submission = (await apiRequest(`/submissions/${id}`)).data;
+    activeSubmission = submission;
+    $('#reviewTitle').textContent = 'Pemeriksaan tugas';
+    $('#reviewContext').textContent = `${getOptionLabel(submission.class)} · ${getOptionLabel(submission.course)} · Pertemuan ${submission.meeting}`;
+    $('#gradeStudentInfo').textContent = `${submission.student_name} (${submission.nim})`;
+    $('#gradeMeetingInfo').textContent = `${getOptionLabel(submission.course)} · ${getOptionLabel(submission.class)} · Pertemuan ${submission.meeting}`;
+    $('#gradeScore').value = submission.grade?.score ?? '';
+    $('#gradeFormError').classList.add('hidden');
+    $('#saveGradeLabel').textContent = submission.grade ? 'Perbarui nilai' : 'Simpan nilai';
+    $('#reviewModal').classList.remove('hidden');
+    $('#reviewModal').classList.add('flex');
+    document.body.classList.add('review-open');
+    $('#pdfLoading').classList.remove('hidden');
+    $('#pdfLoading').classList.add('flex');
+    $('#pdfLoading').innerHTML = '<span class="loading-spinner mr-3" aria-hidden="true"></span>Memuat PDF...';
+
+    const requestedId = submission.id;
+    const result = await fetchProtectedBlob(`/submissions/${submission.id}/file`, 'application/pdf');
+    if (activeSubmission?.id !== requestedId) return;
+    activePdfUrl = URL.createObjectURL(result.blob);
+    $('#submissionPdf').addEventListener('load', () => {
+      $('#pdfLoading').classList.add('hidden');
+      $('#pdfLoading').classList.remove('flex');
+    }, { once: true });
+    $('#submissionPdf').src = activePdfUrl;
+    window.setTimeout(() => $('#gradeScore').focus(), 100);
   } catch (error) {
-    previewWindow?.close();
+    if ($('#reviewModal').classList.contains('hidden')) showToast(error.message);
+    else $('#pdfLoading').innerHTML = `<div class="max-w-md px-6 text-center"><p class="text-red-300">${escapeHtml(error.message)}</p><p class="mt-2 text-xs font-medium text-slate-400">Nilai masih dapat diisi melalui panel di bawah.</p></div>`;
+  }
+}
+
+async function downloadProtectedFile(path, fallbackFilename, button) {
+  const originalText = button.textContent;
+  button.disabled = true;
+  button.textContent = 'Menyiapkan file...';
+  try {
+    const result = await fetchProtectedBlob(path, 'application/octet-stream');
+    const url = URL.createObjectURL(result.blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = result.filename || fallbackFilename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    showToast('File berhasil dibuat dan diunduh.');
+  } catch (error) {
     showToast(error.message);
+  } finally {
+    button.disabled = false;
+    button.textContent = originalText;
   }
 }
 
@@ -308,6 +421,35 @@ $('#clearFilters').addEventListener('click', () => {
   loadSubmissions().catch((error) => showToast(error.message));
 });
 
+let gradeFilterTimer;
+['searchGradeStudent', 'gradeFilterClass', 'gradeFilterCourse'].forEach((id) => $(`#${id}`).addEventListener('input', () => {
+  window.clearTimeout(gradeFilterTimer);
+  gradeFilterTimer = window.setTimeout(() => loadGrades().catch((error) => showToast(error.message)), 250);
+}));
+$('#clearGradeFilters').addEventListener('click', () => {
+  $('#searchGradeStudent').value = '';
+  $('#gradeFilterClass').value = '';
+  $('#gradeFilterCourse').value = '';
+  loadGrades().catch((error) => showToast(error.message));
+});
+
+$('#exportGrades').addEventListener('click', () => {
+  const classId = $('#gradeFilterClass').value;
+  const courseId = $('#gradeFilterCourse').value;
+  if (!classId || !courseId) {
+    showToast('Pilih satu kelas dan satu mata kuliah untuk export Excel.');
+    return;
+  }
+  const params = new URLSearchParams({ class_id: classId, course_id: courseId });
+  const search = $('#searchGradeStudent').value.trim();
+  if (search) params.set('search', search);
+  downloadProtectedFile(`/grades/export?${params}`, 'Nilai.xlsx', $('#exportGrades'));
+});
+
+$('#exportAllGrades').addEventListener('click', () => {
+  downloadProtectedFile('/grades/export-all', 'Rekap_Nilai.zip', $('#exportAllGrades'));
+});
+
 document.addEventListener('click', async (event) => {
   const addButton = event.target.closest('.open-data-modal');
   if (addButton) openDataModal(addButton.dataset.type, addButton.dataset.mode);
@@ -340,7 +482,52 @@ document.addEventListener('click', async (event) => {
   }
 
   const taskButton = event.target.closest('[data-view-task]');
-  if (taskButton) openSubmissionPdf(taskButton.dataset.viewTask);
+  if (taskButton) openSubmissionReview(taskButton.dataset.viewTask);
+});
+
+$('#closeReviewModal').addEventListener('click', closeSubmissionReview);
+$('#openPdfNewTab').addEventListener('click', () => {
+  if (activePdfUrl) window.open(activePdfUrl, '_blank', 'noopener');
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && !$('#reviewModal').classList.contains('hidden')) closeSubmissionReview();
+});
+
+$('#gradeForm').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  if (!activeSubmission) return;
+  const submission = activeSubmission;
+  const score = Number($('#gradeScore').value);
+  const errorMessage = $('#gradeFormError');
+  errorMessage.classList.add('hidden');
+  $('#saveGradeButton').disabled = true;
+  $('#saveGradeSpinner').classList.remove('hidden');
+  $('#saveGradeLabel').textContent = 'Menyimpan...';
+  try {
+    const result = await apiRequest(`/submissions/${submission.id}/grade`, {
+      method: 'PUT',
+      body: JSON.stringify({ score })
+    });
+    submission.grade = result.data;
+    data.submissions.forEach((item) => {
+      const sameGradeCell = item.nim === submission.nim
+        && String(item.class.id) === String(submission.class.id)
+        && String(item.course.id) === String(submission.course.id)
+        && Number(item.meeting) === Number(submission.meeting);
+      if (sameGradeCell) item.grade = String(item.id) === String(submission.id) ? result.data : null;
+    });
+    renderSubmissions();
+    await loadGrades();
+    if (activeSubmission?.id === submission.id) $('#saveGradeLabel').textContent = 'Perbarui nilai';
+    showToast(result.message);
+  } catch (error) {
+    errorMessage.textContent = error.message;
+    errorMessage.classList.remove('hidden');
+    $('#saveGradeLabel').textContent = submission.grade ? 'Perbarui nilai' : 'Simpan nilai';
+  } finally {
+    $('#saveGradeButton').disabled = false;
+    $('#saveGradeSpinner').classList.add('hidden');
+  }
 });
 
 $('#dataForm').addEventListener('submit', async (event) => {

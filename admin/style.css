@@ -1,5 +1,6 @@
 * { box-sizing: border-box; }
 body { overflow-x: hidden; }
+body.review-open { overflow: hidden; }
 .login-orb { position: fixed; pointer-events: none; border-radius: 9999px; filter: blur(2px); }
 .login-orb-one { width: 35rem; height: 35rem; top: -18rem; right: -9rem; background: radial-gradient(circle, rgba(191, 219, 254, .65), rgba(239, 246, 255, 0)); }
 .login-orb-two { width: 27rem; height: 27rem; bottom: -15rem; left: -10rem; background: radial-gradient(circle, rgba(254, 215, 170, .35), rgba(255, 247, 237, 0)); }
@@ -15,6 +16,10 @@ body { overflow-x: hidden; }
 .modal-card { animation: modal-in 220ms ease-out; }
 .loading-spinner { display: inline-block; width: 1rem; height: 1rem; flex: 0 0 auto; border: 2px solid currentColor; border-right-color: transparent; border-radius: 9999px; animation: loading-spin .7s linear infinite; }
 .loading-spinner.hidden { display: none; }
+.grade-table-wrap { max-height: calc(100vh - 22rem); }
+#submissionPdf { color-scheme: light; }
+.grade-form-input { padding: .45rem .75rem; border-radius: .65rem; font-size: .75rem; line-height: 1.25rem; }
+.grade-form-button { min-height: 2.25rem; }
 @keyframes loading-spin { to { transform: rotate(360deg); } }
 @keyframes modal-in { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @media (max-width: 1023px) { #sidebar.open { transform: translateX(0); } }

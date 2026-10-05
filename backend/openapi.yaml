@@ -15,6 +15,7 @@ tags:
   - name: Classes
   - name: Courses
   - name: Submissions
+  - name: Grades
   - name: Admins
 
 paths:
@@ -23,6 +24,7 @@ paths:
       tags: [Authentication]
       summary: Login admin
       operationId: loginAdmin
+      security: []
       requestBody:
         required: true
         content:
@@ -96,6 +98,7 @@ paths:
       tags: [Classes]
       summary: Daftar seluruh kelas
       operationId: listClasses
+      security: []
       responses:
         '200':
           description: Daftar kelas
@@ -192,6 +195,7 @@ paths:
       tags: [Courses]
       summary: Daftar seluruh mata kuliah
       operationId: listCourses
+      security: []
       responses:
         '200':
           description: Daftar mata kuliah
@@ -283,6 +287,7 @@ paths:
       tags: [Submissions]
       summary: Mengirim tugas mahasiswa
       operationId: createSubmission
+      security: []
       requestBody:
         required: true
         content:
@@ -406,6 +411,116 @@ paths:
               schema: { type: string, example: 'inline; filename="tugas.pdf"' }
           content:
             application/pdf:
+              schema: { type: string, format: binary }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /submissions/{submissionId}/grade:
+    put:
+      tags: [Grades]
+      summary: Menyimpan atau memperbarui nilai laporan tugas
+      operationId: saveSubmissionGrade
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/SubmissionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [score]
+              properties:
+                score: { type: number, minimum: 0, maximum: 100, example: 87.5 }
+      responses:
+        '200':
+          description: Nilai berhasil diperbarui
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GradeResponse' }
+        '201':
+          description: Nilai berhasil dibuat
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GradeResponse' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /grades:
+    get:
+      tags: [Grades]
+      summary: Rekap nilai mahasiswa per kelas dan mata kuliah
+      operationId: listGrades
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: class_id
+          in: query
+          schema: { type: integer }
+        - name: course_id
+          in: query
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Matriks nilai Pertemuan 1 sampai 14
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/GradeReportRow' }
+                  meta:
+                    type: object
+                    properties:
+                      meeting_count: { type: integer, example: 14 }
+                      total: { type: integer, example: 20 }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+
+  /grades/export:
+    get:
+      tags: [Grades]
+      summary: Export satu kombinasi kelas dan mata kuliah sebagai Excel
+      operationId: exportGrades
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: class_id
+          in: query
+          required: true
+          schema: { type: integer }
+        - name: course_id
+          in: query
+          required: true
+          schema: { type: integer }
+        - name: search
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: File Excel khusus kelas dan mata kuliah terpilih
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema: { type: string, format: binary }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /grades/export-all:
+    get:
+      tags: [Grades]
+      summary: Export semua nilai sebagai kumpulan Excel terpisah dalam ZIP
+      operationId: exportAllGrades
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: ZIP berisi satu Excel untuk setiap kombinasi kelas dan mata kuliah
+          content:
+            application/zip:
               schema: { type: string, format: binary }
         '401': { $ref: '#/components/responses/Unauthenticated' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -580,6 +695,40 @@ components:
             mime_type: { type: string, example: application/pdf }
             size: { type: integer, example: 245760 }
         submitted_at: { type: string, format: date-time, nullable: true }
+        grade:
+          type: object
+          allOf:
+            - $ref: '#/components/schemas/Grade'
+          nullable: true
+
+    Grade:
+      type: object
+      properties:
+        id: { type: integer, example: 1 }
+        score: { type: number, format: float, minimum: 0, maximum: 100, example: 87.5 }
+        graded_by: { type: integer, nullable: true, example: 2 }
+        graded_at: { type: string, format: date-time, nullable: true }
+
+    GradeResponse:
+      type: object
+      properties:
+        success: { type: boolean, example: true }
+        message: { type: string, example: Nilai berhasil disimpan. }
+        data: { $ref: '#/components/schemas/Grade' }
+
+    GradeReportRow:
+      type: object
+      properties:
+        nim: { type: string, example: TI2024001 }
+        student_name: { type: string, example: Alya Putri }
+        class: { $ref: '#/components/schemas/ClassroomSummary' }
+        course: { $ref: '#/components/schemas/CourseSummary' }
+        meetings:
+          type: object
+          description: Nilai per pertemuan dengan kunci 1 sampai 14; null jika belum dinilai.
+          additionalProperties:
+            type: number
+            nullable: true
 
     ClassroomSummary:
       type: object

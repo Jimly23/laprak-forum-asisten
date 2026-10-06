@@ -23,6 +23,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/submissions/{submission}/file', [SubmissionController::class, 'file']);
         Route::put('/submissions/{submission}/grade', [GradeController::class, 'store']);
 
+        Route::get('/grades/groups', [GradeController::class, 'groups']);
         Route::get('/grades', [GradeController::class, 'index']);
         Route::get('/grades/export', [GradeController::class, 'export']);
         Route::get('/grades/export-all', [GradeController::class, 'exportAll']);

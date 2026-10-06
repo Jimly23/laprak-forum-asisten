@@ -12,6 +12,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 use Tests\TestCase;
 
 class ApiTest extends TestCase
@@ -141,6 +142,17 @@ class ApiTest extends TestCase
         [$classroom, $course] = $this->references();
         $firstSubmission = $this->submission($classroom, $course, ['stored_path' => 'submissions/first.pdf']);
         $latestSubmission = $this->submission($classroom, $course, ['stored_path' => 'submissions/latest.pdf']);
+        $ungradedSubmission = $this->submission($classroom, $course, [
+            'nim' => 'TI002',
+            'student_name' => 'Bima Pratama',
+            'stored_path' => 'submissions/ungraded.pdf',
+        ]);
+
+        $this->getJson('/api/v1/grades/groups')
+            ->assertOk()
+            ->assertJsonPath('data.0.key', $classroom->id.'-'.$course->id)
+            ->assertJsonPath('data.0.submission_count', 3)
+            ->assertJsonPath('data.0.graded_count', 0);
 
         $this->putJson('/api/v1/submissions/'.$firstSubmission->id.'/grade', ['score' => 82.5])
             ->assertCreated()
@@ -163,11 +175,12 @@ class ApiTest extends TestCase
 
         $this->getJson('/api/v1/grades')
             ->assertOk()
-            ->assertJsonPath('meta.total', 1)
-            ->assertJsonPath('data.0.nim', 'TI001')
-            ->assertJsonPath('data.0.class.code', 'TI-1A')
-            ->assertJsonPath('data.0.course.code', 'IF101')
-            ->assertJsonPath('data.0.meetings.1', 91.25);
+            ->assertJsonPath('meta.total', 2)
+            ->assertJsonFragment(['nim' => 'TI001', 'student_name' => 'Alya Putri'])
+            ->assertJsonFragment(['nim' => 'TI002', 'student_name' => 'Bima Pratama'])
+            ->assertJsonFragment(['code' => 'TI-1A', 'name' => 'Teknik Informatika — 1A'])
+            ->assertJsonFragment(['code' => 'IF101', 'name' => 'Pemrograman Web'])
+            ->assertJsonFragment(['1' => 91.25]);
     }
 
     public function test_grade_validation_and_authentication_are_enforced(): void
@@ -203,10 +216,20 @@ class ApiTest extends TestCase
             'graded_by' => $admin->id,
         ]);
 
-        $this->get('/api/v1/grades/export?class_id='.$classroom->id.'&course_id='.$course->id)
+        $excelResponse = $this->get('/api/v1/grades/export?class_id='.$classroom->id.'&course_id='.$course->id);
+        $excelResponse
             ->assertOk()
             ->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
             ->assertDownload('Nilai_IF101_Pemrograman_Web_TI_1A.xlsx');
+        $spreadsheet = IOFactory::load($excelResponse->baseResponse->getFile()->getPathname());
+        $sheet = $spreadsheet->getActiveSheet();
+        $this->assertStringStartsWith('Nilai Mata Kuliah: IF101', (string) $sheet->getCell('A1')->getValue());
+        $this->assertStringStartsWith('Kelas: TI-1A', (string) $sheet->getCell('A2')->getValue());
+        $this->assertSame('NIM', $sheet->getCell('A4')->getValue());
+        $this->assertSame('Mata Kuliah', $sheet->getCell('D4')->getValue());
+        $this->assertSame('FFFF00', $sheet->getStyle('A4')->getFill()->getStartColor()->getRGB());
+        $this->assertSame('A5', $sheet->getFreezePane());
+        $spreadsheet->disconnectWorksheets();
 
         $this->get('/api/v1/grades/export-all')
             ->assertOk()
@@ -218,6 +241,7 @@ class ApiTest extends TestCase
     {
         $this->getJson('/api/v1/submissions')->assertUnauthorized();
         $this->getJson('/api/v1/grades')->assertUnauthorized();
+        $this->getJson('/api/v1/grades/groups')->assertUnauthorized();
         $this->postJson('/api/v1/classes', ['code' => 'A', 'name' => 'A'])->assertUnauthorized();
     }
 

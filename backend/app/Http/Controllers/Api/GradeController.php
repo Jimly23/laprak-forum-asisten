@@ -26,7 +26,7 @@ class GradeController extends Controller
     public function index(Request $request): JsonResponse
     {
         $filters = $this->validateFilters($request);
-        $rows = $this->reportService->rows($this->reportService->query($filters)->get());
+        $rows = $this->reportService->rowsForFilters($filters);
 
         return response()->json([
             'success' => true,
@@ -35,6 +35,14 @@ class GradeController extends Controller
                 'meeting_count' => GradeReportService::MEETING_COUNT,
                 'total' => count($rows),
             ],
+        ]);
+    }
+
+    public function groups(): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'data' => $this->reportService->groups(),
         ]);
     }
 
@@ -87,10 +95,10 @@ class GradeController extends Controller
         ]);
         $classroom = Classroom::query()->findOrFail($filters['class_id']);
         $course = Course::query()->findOrFail($filters['course_id']);
-        $rows = $this->reportService->rows($this->reportService->query($filters)->get());
+        $rows = $this->reportService->rowsForFilters($filters);
 
         if ($rows === []) {
-            return response()->json(['success' => false, 'message' => 'Belum ada nilai untuk kelas dan mata kuliah ini.'], 404);
+            return response()->json(['success' => false, 'message' => 'Belum ada laporan untuk kelas dan mata kuliah ini.'], 404);
         }
 
         $path = tempnam(sys_get_temp_dir(), 'nilai_');
@@ -103,14 +111,9 @@ class GradeController extends Controller
 
     public function exportAll(): BinaryFileResponse|JsonResponse
     {
-        $groups = Grade::query()
-            ->select(['class_id', 'course_id'])
-            ->distinct()
-            ->orderBy('class_id')
-            ->orderBy('course_id')
-            ->get();
+        $groups = $this->reportService->groups();
 
-        if ($groups->isEmpty()) {
+        if ($groups === []) {
             return response()->json(['success' => false, 'message' => 'Belum ada nilai yang dapat diekspor.'], 404);
         }
 
@@ -123,10 +126,10 @@ class GradeController extends Controller
         $temporaryFiles = [];
         try {
             foreach ($groups as $group) {
-                $classroom = Classroom::query()->findOrFail($group->class_id);
-                $course = Course::query()->findOrFail($group->course_id);
+                $classroom = Classroom::query()->findOrFail($group['class']['id']);
+                $course = Course::query()->findOrFail($group['course']['id']);
                 $filters = ['class_id' => $classroom->id, 'course_id' => $course->id];
-                $rows = $this->reportService->rows($this->reportService->query($filters)->get());
+                $rows = $this->reportService->rowsForFilters($filters);
                 $xlsxPath = tempnam(sys_get_temp_dir(), 'nilai_xlsx_');
                 $temporaryFiles[] = $xlsxPath;
                 $this->exportService->write($rows, $classroom, $course, $xlsxPath);

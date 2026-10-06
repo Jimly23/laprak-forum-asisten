@@ -23,14 +23,22 @@ class GradeExportService
             $headers[] = "Pertemuan {$meeting}";
         }
 
-        $sheet->fromArray($headers, null, 'A1');
-        $rowNumber = 2;
+        $lastColumn = Coordinate::stringFromColumnIndex(count($headers));
+        $courseLabel = $this->referenceLabel($course->code, $course->name);
+        $classLabel = $this->referenceLabel($classroom->code, $classroom->name);
+
+        $sheet->mergeCells("A1:{$lastColumn}1");
+        $sheet->mergeCells("A2:{$lastColumn}2");
+        $sheet->setCellValue('A1', "Nilai Mata Kuliah: {$courseLabel}");
+        $sheet->setCellValue('A2', "Kelas: {$classLabel}");
+        $sheet->fromArray($headers, null, 'A4');
+        $rowNumber = 5;
         foreach ($rows as $row) {
             $values = [
                 $row['nim'],
                 $row['student_name'],
-                $this->referenceLabel($classroom->code, $classroom->name),
-                $this->referenceLabel($course->code, $course->name),
+                $classLabel,
+                $courseLabel,
             ];
             for ($meeting = 1; $meeting <= GradeReportService::MEETING_COUNT; $meeting++) {
                 $values[] = $row['meetings'][$meeting];
@@ -39,14 +47,27 @@ class GradeExportService
             $rowNumber++;
         }
 
-        $lastColumn = Coordinate::stringFromColumnIndex(count($headers));
-        $sheet->getStyle("A1:{$lastColumn}1")->applyFromArray([
-            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
-            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '1E3A8A']],
-            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
+        $lastRow = max(4, $rowNumber - 1);
+        $sheet->getStyle("A1:{$lastColumn}2")->applyFromArray([
+            'font' => ['bold' => true, 'color' => ['rgb' => '172554'], 'size' => 13],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_LEFT, 'vertical' => Alignment::VERTICAL_CENTER],
         ]);
-        $sheet->freezePane('E2');
-        $sheet->setAutoFilter("A1:{$lastColumn}1");
+        $sheet->getStyle("A4:{$lastColumn}4")->applyFromArray([
+            'font' => ['bold' => true, 'color' => ['rgb' => '172554']],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FFFF00']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => 'thin',
+                    'color' => ['rgb' => 'D1D5DB'],
+                ],
+            ],
+        ]);
+        $sheet->getRowDimension(1)->setRowHeight(22);
+        $sheet->getRowDimension(2)->setRowHeight(20);
+        $sheet->getRowDimension(4)->setRowHeight(28);
+        $sheet->freezePane('A5');
+        $sheet->setAutoFilter("A4:{$lastColumn}{$lastRow}");
         $sheet->getColumnDimension('A')->setWidth(18);
         $sheet->getColumnDimension('B')->setWidth(28);
         $sheet->getColumnDimension('C')->setWidth(24);

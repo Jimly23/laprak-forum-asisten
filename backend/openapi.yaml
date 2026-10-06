@@ -447,6 +447,26 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/ValidationError' }
 
+  /grades/groups:
+    get:
+      tags: [Grades]
+      summary: Daftar kombinasi kelas dan mata kuliah yang memiliki laporan
+      operationId: listGradeGroups
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Kombinasi kelas dan mata kuliah yang valid untuk rekap nilai
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/GradeGroup' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+
   /grades:
     get:
       tags: [Grades]
@@ -729,6 +749,15 @@ components:
           additionalProperties:
             type: number
             nullable: true
+
+    GradeGroup:
+      type: object
+      properties:
+        key: { type: string, example: '1-3' }
+        class: { $ref: '#/components/schemas/ClassroomSummary' }
+        course: { $ref: '#/components/schemas/CourseSummary' }
+        submission_count: { type: integer, example: 25 }
+        graded_count: { type: integer, example: 18 }
 
     ClassroomSummary:
       type: object

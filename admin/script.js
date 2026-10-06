@@ -1,13 +1,13 @@
 const API_CANDIDATES = [
   window.KUMPULTUGAS_API_URL,
-  // 'http://127.0.0.1:8001/api/v1'
-  'https://api.asisten.teraspelajar.com/api/v1'
+  'http://127.0.0.1:8001/api/v1'
+  // 'https://api.asisten.teraspelajar.com/api/v1'
 ].filter(Boolean);
 let API_BASE_URL = API_CANDIDATES[0];
 let apiResolved = false;
 const AUTH_TOKEN_KEY = 'kumpultugas-admin-token';
 
-const data = { classes: [], courses: [], admins: [], submissions: [], grades: [] };
+const data = { classes: [], courses: [], admins: [], submissions: [], grades: [], gradeGroups: [] };
 let currentUser = null;
 let editing = { type: null, id: null };
 let submissionTotal = 0;
@@ -176,15 +176,37 @@ function currentGradeQuery() {
   const params = new URLSearchParams();
   const search = $('#searchGradeStudent').value.trim();
   if (search) params.set('search', search);
-  if ($('#gradeFilterClass').value) params.set('class_id', $('#gradeFilterClass').value);
-  if ($('#gradeFilterCourse').value) params.set('course_id', $('#gradeFilterCourse').value);
+  const group = data.gradeGroups.find((item) => item.key === $('#gradeFilterGroup').value);
+  if (group) {
+    params.set('class_id', group.class.id);
+    params.set('course_id', group.course.id);
+  }
   return params.toString();
+}
+
+async function loadGradeGroups() {
+  const result = await apiRequest('/grades/groups');
+  data.gradeGroups = result.data;
+  renderGradeGroupOptions();
+}
+
+function renderGradeGroupOptions() {
+  const selected = $('#gradeFilterGroup').value;
+  $('#gradeFilterGroup').innerHTML = '<option value="">Pilih kelas dan mata kuliah</option>' + data.gradeGroups.map((group) => `<option value="${escapeHtml(group.key)}">${escapeHtml(getOptionLabel(group.class))} — ${escapeHtml(getOptionLabel(group.course))}</option>`).join('');
+  $('#gradeFilterGroup').value = data.gradeGroups.some((group) => group.key === selected) ? selected : '';
 }
 
 async function loadGrades() {
   $('#gradeCount').textContent = 'Memuat data...';
   $('#gradeRows').innerHTML = '<tr><td colspan="18" class="px-5 py-12 text-center"><span class="loading-spinner text-navy" aria-hidden="true"></span><span class="ml-2 text-sm font-semibold text-slate-400">Memuat rekap nilai...</span></td></tr>';
   try {
+    const groupKey = $('#gradeFilterGroup').value;
+    if (!groupKey) {
+      data.grades = [];
+      gradeTotal = 0;
+      renderGrades('Pilih kombinasi kelas dan mata kuliah untuk melihat rekap nilai.');
+      return;
+    }
     const query = currentGradeQuery();
     const result = await apiRequest(`/grades${query ? `?${query}` : ''}`);
     data.grades = result.data;
@@ -199,6 +221,7 @@ async function loadGrades() {
 
 async function loadAppData() {
   await loadReferenceData();
+  await loadGradeGroups();
   await Promise.all([loadSubmissions(), loadGrades(), loadAdmins()]);
 }
 
@@ -206,18 +229,12 @@ function renderFilterOptions() {
   const selectedClass = $('#filterClass').value;
   const selectedCourse = $('#filterCourse').value;
   const selectedMeeting = $('#filterMeeting').value;
-  const selectedGradeClass = $('#gradeFilterClass').value;
-  const selectedGradeCourse = $('#gradeFilterCourse').value;
   $('#filterClass').innerHTML = '<option value="">Semua kelas</option>' + data.classes.map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(getOptionLabel(item))}</option>`).join('');
   $('#filterCourse').innerHTML = '<option value="">Semua mata kuliah</option>' + data.courses.map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(getOptionLabel(item))}</option>`).join('');
   $('#filterMeeting').innerHTML = '<option value="">Semua pertemuan</option>' + Array.from({ length: 14 }, (_, index) => `<option value="${index + 1}">Pertemuan ${index + 1}</option>`).join('');
-  $('#gradeFilterClass').innerHTML = '<option value="">Semua kelas</option>' + data.classes.map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(getOptionLabel(item))}</option>`).join('');
-  $('#gradeFilterCourse').innerHTML = '<option value="">Semua mata kuliah</option>' + data.courses.map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(getOptionLabel(item))}</option>`).join('');
   $('#filterClass').value = selectedClass;
   $('#filterCourse').value = selectedCourse;
   $('#filterMeeting').value = selectedMeeting;
-  $('#gradeFilterClass').value = selectedGradeClass;
-  $('#gradeFilterCourse').value = selectedGradeCourse;
 }
 
 function renderSubmissions() {
@@ -225,10 +242,10 @@ function renderSubmissions() {
   $('#submissionRows').innerHTML = data.submissions.length ? data.submissions.map((item) => `<tr class="transition hover:bg-blue-50/40"><td class="px-5 py-4"><p class="font-bold text-ink">${escapeHtml(item.student_name)}</p><p class="mt-0.5 text-xs text-slate-400">${escapeHtml(item.nim)}</p></td><td class="px-5 py-4"><span class="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">${escapeHtml(item.class.code)}</span></td><td class="px-5 py-4"><p class="font-semibold text-slate-600">${escapeHtml(item.course.name)}</p><p class="mt-0.5 text-xs text-slate-400">${escapeHtml(item.course.code)}</p></td><td class="px-5 py-4"><span class="whitespace-nowrap rounded-lg bg-orange-50 px-2.5 py-1 text-xs font-bold text-orange-600">Ke-${item.meeting}</span></td><td class="px-5 py-4"><span class="inline-flex items-center gap-2 text-xs font-bold text-navy"><span class="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50 text-[9px]">PDF</span>${escapeHtml(item.file.name)}</span></td><td class="whitespace-nowrap px-5 py-4 text-xs text-slate-500">${formatDate(item.submitted_at)}</td><td class="px-5 py-4 text-right"><div class="flex items-center justify-end gap-2">${item.grade ? `<span class="rounded-lg bg-emerald-50 px-2.5 py-2 text-xs font-extrabold text-emerald-600">${formatScore(item.grade.score)}</span>` : ''}<button class="whitespace-nowrap rounded-lg bg-navy px-3 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-blue-900" data-view-task="${item.id}">Lihat & nilai</button></div></td></tr>`).join('') : '<tr><td colspan="7" class="px-5 py-12 text-center text-sm text-slate-400">Tidak ada tugas yang sesuai dengan filter.</td></tr>';
 }
 
-function renderGrades() {
+function renderGrades(emptyMessage = 'Belum ada nilai yang sesuai dengan filter.') {
   $('#gradeHeaders').innerHTML = '<th class="w-[9.5rem] px-4 py-3.5">NIM</th><th class="w-[14rem] px-4 py-3.5">Nama</th><th class="px-4 py-3.5">Kelas</th><th class="px-4 py-3.5">Mata kuliah</th>' + Array.from({ length: 14 }, (_, index) => `<th class="px-3 py-3.5 text-center">Pertemuan ${index + 1}</th>`).join('');
   $('#gradeCount').textContent = `${gradeTotal} baris nilai ditemukan`;
-  $('#gradeRows').innerHTML = data.grades.length ? data.grades.map((item) => `<tr class="bg-white hover:bg-blue-50/40"><td class="w-[9.5rem] px-4 py-4 font-extrabold text-ink">${escapeHtml(item.nim)}</td><td class="w-[14rem] px-4 py-4 font-semibold text-slate-700">${escapeHtml(item.student_name)}</td><td class="whitespace-nowrap px-4 py-4"><span class="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">${escapeHtml(item.class.code)}</span></td><td class="min-w-[14rem] px-4 py-4"><p class="font-semibold text-slate-700">${escapeHtml(item.course.name)}</p><p class="text-xs text-slate-400">${escapeHtml(item.course.code)}</p></td>${Array.from({ length: 14 }, (_, index) => { const score = item.meetings[String(index + 1)] ?? item.meetings[index + 1]; return `<td class="px-3 py-4 text-center"><span class="${score === null || score === undefined ? 'text-slate-300' : 'font-extrabold text-navy'}">${formatScore(score)}</span></td>`; }).join('')}</tr>`).join('') : '<tr><td colspan="18" class="px-5 py-12 text-center text-sm text-slate-400">Belum ada nilai yang sesuai dengan filter.</td></tr>';
+  $('#gradeRows').innerHTML = data.grades.length ? data.grades.map((item) => `<tr class="bg-white hover:bg-blue-50/40"><td class="w-[9.5rem] px-4 py-4 font-extrabold text-ink">${escapeHtml(item.nim)}</td><td class="w-[14rem] px-4 py-4 font-semibold text-slate-700">${escapeHtml(item.student_name)}</td><td class="whitespace-nowrap px-4 py-4"><span class="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">${escapeHtml(item.class.code)}</span></td><td class="min-w-[14rem] px-4 py-4"><p class="font-semibold text-slate-700">${escapeHtml(item.course.name)}</p><p class="text-xs text-slate-400">${escapeHtml(item.course.code)}</p></td>${Array.from({ length: 14 }, (_, index) => { const score = item.meetings[String(index + 1)] ?? item.meetings[index + 1]; return `<td class="px-3 py-4 text-center"><span class="${score === null || score === undefined ? 'text-slate-300' : 'font-extrabold text-navy'}">${formatScore(score)}</span></td>`; }).join('')}</tr>`).join('') : `<tr><td colspan="18" class="px-5 py-12 text-center text-sm text-slate-400">${escapeHtml(emptyMessage)}</td></tr>`;
 }
 
 function renderClasses() {
@@ -422,25 +439,23 @@ $('#clearFilters').addEventListener('click', () => {
 });
 
 let gradeFilterTimer;
-['searchGradeStudent', 'gradeFilterClass', 'gradeFilterCourse'].forEach((id) => $(`#${id}`).addEventListener('input', () => {
+['searchGradeStudent', 'gradeFilterGroup'].forEach((id) => $(`#${id}`).addEventListener('input', () => {
   window.clearTimeout(gradeFilterTimer);
   gradeFilterTimer = window.setTimeout(() => loadGrades().catch((error) => showToast(error.message)), 250);
 }));
 $('#clearGradeFilters').addEventListener('click', () => {
   $('#searchGradeStudent').value = '';
-  $('#gradeFilterClass').value = '';
-  $('#gradeFilterCourse').value = '';
+  $('#gradeFilterGroup').value = '';
   loadGrades().catch((error) => showToast(error.message));
 });
 
 $('#exportGrades').addEventListener('click', () => {
-  const classId = $('#gradeFilterClass').value;
-  const courseId = $('#gradeFilterCourse').value;
-  if (!classId || !courseId) {
-    showToast('Pilih satu kelas dan satu mata kuliah untuk export Excel.');
+  const group = data.gradeGroups.find((item) => item.key === $('#gradeFilterGroup').value);
+  if (!group) {
+    showToast('Pilih satu kombinasi kelas dan mata kuliah untuk export Excel.');
     return;
   }
-  const params = new URLSearchParams({ class_id: classId, course_id: courseId });
+  const params = new URLSearchParams({ class_id: group.class.id, course_id: group.course.id });
   const search = $('#searchGradeStudent').value.trim();
   if (search) params.set('search', search);
   downloadProtectedFile(`/grades/export?${params}`, 'Nilai.xlsx', $('#exportGrades'));

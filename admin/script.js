@@ -1,7 +1,7 @@
 const API_CANDIDATES = [
   window.KUMPULTUGAS_API_URL,
-  'http://127.0.0.1:8001/api/v1'
-  // 'https://api.asisten.teraspelajar.com/api/v1'
+  // 'http://127.0.0.1:8001/api/v1'
+  'https://api.asisten.teraspelajar.com/api/v1'
 ].filter(Boolean);
 let API_BASE_URL = API_CANDIDATES[0];
 let apiResolved = false;
